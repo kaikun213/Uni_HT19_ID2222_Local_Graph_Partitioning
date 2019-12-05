@@ -17,8 +17,13 @@ public class Jabeja {
   private final List<Integer> nodeIds;
   private int numberOfSwaps;
   private int round;
-  private float T;
+  private double T;
   private boolean resultFileCreated = false;
+
+  // New
+  private boolean linearAnneal = false;
+  private double T_min = 0.00001;
+  private double alpha = 0.95;
 
   //-------------------------------------------------------------------
   public Jabeja(HashMap<Integer, Node> graph, Config config) {
@@ -27,7 +32,7 @@ public class Jabeja {
     this.round = 0;
     this.numberOfSwaps = 0;
     this.config = config;
-    this.T = config.getTemperature();
+    this.T = linearAnneal ? config.getTemperature() : 1;
   }
 
 
@@ -50,10 +55,29 @@ public class Jabeja {
    */
   private void saCoolDown(){
     // TODO for second task
-    if (T > 1)
-      T -= config.getDelta();
-    if (T < 1)
-      T = 1;
+
+    if (linearAnneal) {
+      if (T > 1)
+        T -= config.getDelta();
+      if (T < 1)
+        T = 1;
+    } else {
+      if (T > T_min) {
+        T *= alpha;
+      }
+      if (T < T_min) {
+        T = T_min;
+      }
+    }
+  }
+
+  private boolean acceptance(double oldBenefit, double newBenefit) {
+    // Current Temperature T biases towards selecting new states (in the initial rounds)
+    if (linearAnneal) return newBenefit * T > oldBenefit;
+    // Non-linear: If newBenefit better than oldBenefit -> always 100% probability, otherwise lowers with T and diff
+    // NOTE: On the webpage they use the cost. In that case the formula would have been needed to be switched.
+    double probability = Math.exp((newBenefit-oldBenefit)/T);
+    return probability > Math.random();
   }
 
   /**
@@ -67,17 +91,25 @@ public class Jabeja {
     if (config.getNodeSelectionPolicy() == NodeSelectionPolicy.HYBRID
             || config.getNodeSelectionPolicy() == NodeSelectionPolicy.LOCAL) {
       // swap with random neighbors
-      // TODO
+      partner = findPartner(nodeId, getNeighbors(nodep));
     }
 
     if (config.getNodeSelectionPolicy() == NodeSelectionPolicy.HYBRID
             || config.getNodeSelectionPolicy() == NodeSelectionPolicy.RANDOM) {
       // if local policy fails then randomly sample the entire graph
-      // TODO
+      partner = findPartner(nodeId, getSample(nodeId));
     }
 
     // swap the colors
-    // TODO
+    if (partner != null) {
+      numberOfSwaps++;
+      int colorp = nodep.getColor();
+      nodep.setColor(partner.getColor());
+      partner.setColor(colorp);
+    }
+
+    // NOTE: Paper suggests cool down after each swap -> code suggests global cool down instead (after all node-swaps).
+    // saCoolDown();
   }
 
   public Node findPartner(int nodeId, Integer[] nodes){
@@ -87,7 +119,27 @@ public class Jabeja {
     Node bestPartner = null;
     double highestBenefit = 0;
 
-    // TODO
+    // Iterate over possible swap-partners and calculate cost/benefit
+    for (Integer n : nodes){
+      Node potentialPartner = entireGraph.get(n);
+
+      // Calculate current benefit -> Sum of neighbours with same color for both nodes
+      double nodepDegree = getDegree(nodep, nodep.getColor());
+      double ppDegree = getDegree(potentialPartner, potentialPartner.getColor());
+      double previousBenefit = nodepDegree + ppDegree;
+
+      // Calculate potential benefit -> Sum of neighbours with same color for both nodes when color is switched
+      // NOTE: This does not account for the node itself being a neighbour, as it would have an updated color.
+      //       But follows the algorithm from the paper.
+      double nodepSwitchDegree = getDegree(nodep, potentialPartner.getColor());
+      double ppSwitchDegree = getDegree(potentialPartner, nodep.getColor());
+      double potentialBenefit = nodepSwitchDegree + ppSwitchDegree;
+
+      if (acceptance(previousBenefit, potentialBenefit) && potentialBenefit > highestBenefit) {
+        bestPartner = potentialPartner;
+        highestBenefit = potentialBenefit;
+      }
+    }
 
     return bestPartner;
   }
@@ -206,7 +258,8 @@ public class Jabeja {
     logger.info("round: " + round +
             ", edge cut:" + edgeCut +
             ", swaps: " + numberOfSwaps +
-            ", migrations: " + migrations);
+            ", migrations: " + migrations +
+            ", T: " + T);
 
     saveToFile(edgeCut, migrations);
   }
