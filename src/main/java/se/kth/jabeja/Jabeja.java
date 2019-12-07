@@ -1,6 +1,11 @@
 package se.kth.jabeja;
 
 import org.apache.log4j.Logger;
+import org.knowm.xchart.QuickChart;
+import org.knowm.xchart.SwingWrapper;
+import org.knowm.xchart.XYChart;
+import org.knowm.xchart.XYChartBuilder;
+import org.knowm.xchart.style.Styler;
 import se.kth.jabeja.config.Config;
 import se.kth.jabeja.config.NodeSelectionPolicy;
 import se.kth.jabeja.io.FileIO;
@@ -9,6 +14,9 @@ import se.kth.jabeja.rand.RandNoGenerator;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+
+import static se.kth.jabeja.AnnealingType.EXPONENTIAL;
+import static se.kth.jabeja.AnnealingType.LINEAR;
 
 public class Jabeja {
   final static Logger logger = Logger.getLogger(Jabeja.class);
@@ -21,23 +29,42 @@ public class Jabeja {
   private boolean resultFileCreated = false;
 
   // New
-  private boolean linearAnneal = false;
+  private Result result;
+  private Result[] liveData;
   private double T_min = 0.00001;
-  private double alpha = 0.95;
+  private XYChart realtime;
+  private int chartIdx;
 
   //-------------------------------------------------------------------
-  public Jabeja(HashMap<Integer, Node> graph, Config config) {
+  public Jabeja(HashMap<Integer, Node> graph, Config config, int chartIdx) {
     this.entireGraph = graph;
     this.nodeIds = new ArrayList(entireGraph.keySet());
     this.round = 0;
     this.numberOfSwaps = 0;
     this.config = config;
-    this.T = linearAnneal ? config.getTemperature() : 1;
+    this.T = config.getAnnealingType() == LINEAR ? config.getTemperature() : 1.0;
+    this.result = new Result(config);
+    this.liveData = new Result[config.getRounds()];
+    this.chartIdx = chartIdx;
+
+    Result initResult = new Result(config);
+    initResult.edgeCut[round] = 0;
+    this.realtime = QuickChart.getChart("Real-time Edge count", "Rounds", "Edge cuts", initResult.getIdentifier(), initResult.xRange(), initResult.getEdgeCut());
+    realtime.getStyler().setLegendVisible(true);
+    realtime.getStyler().setLegendPosition(Styler.LegendPosition.InsideNE);
   }
 
+  public XYChart getRealtime() {
+    return this.realtime;
+  }
+
+  public int getChartIdx() {
+    return this.chartIdx;
+  }
 
   //-------------------------------------------------------------------
-  public void startJabeja() throws IOException {
+  public Result startJabeja(SwingWrapper<XYChart> realTimeDisplay) throws IOException {
+
     for (round = 0; round < config.getRounds(); round++) {
       for (int id : entireGraph.keySet()) {
         sampleAndSwap(id);
@@ -46,38 +73,58 @@ public class Jabeja {
       //one cycle for all nodes have completed.
       //reduce the temperature
       saCoolDown();
+
+
+      // Update stats and redraw graph
       report();
+      realtime.updateXYSeries(this.result.getIdentifier(), liveData[round].xRange(), liveData[round].getEdgeCut(), null);
+      realTimeDisplay.repaintChart(chartIdx);
     }
+
+    return result;
   }
 
   /**
    * Simulated analealing cooling function
    */
   private void saCoolDown(){
-    // TODO for second task
-
-    if (linearAnneal) {
-      if (T > 1)
-        T -= config.getDelta();
-      if (T < 1)
-        T = 1;
-    } else {
-      if (T > T_min) {
-        T *= alpha;
+    switch (config.getAnnealingType()) {
+      case LINEAR : {
+        if (T > 1)
+          T -= config.getDelta();
+        if (T < 1)
+          T = 1;
       }
-      if (T < T_min) {
-        T = T_min;
+      break;
+      case EXPONENTIAL: {
+        if (T > T_min) {
+          T *= config.getAlpha();
+        }
+        if (T < T_min) {
+          T = T_min;
+        }
+      }
+      break;
+      case CUSTOM: {
+        // TODO - improve with custom annealing function
+        T *= config.getAlpha();
       }
     }
   }
 
   private boolean acceptance(double oldBenefit, double newBenefit) {
-    // Current Temperature T biases towards selecting new states (in the initial rounds)
-    if (linearAnneal) return newBenefit * T > oldBenefit;
-    // Non-linear: If newBenefit better than oldBenefit -> always 100% probability, otherwise lowers with T and diff
-    // NOTE: On the webpage they use the cost. In that case the formula would have been needed to be switched.
-    double probability = Math.exp((newBenefit-oldBenefit)/T);
-    return probability > Math.random();
+    switch (config.getAnnealingType()) {
+      case EXPONENTIAL:
+        // Non-linear: If newBenefit better than oldBenefit -> always 100% probability, otherwise lowers with T and diff
+        // NOTE: On the webpage they use the cost. In that case the formula would have been needed to be switched.
+        double probability = Math.exp((newBenefit-oldBenefit)/T);
+        return probability > Math.random();
+      // Current Temperature T biases towards selecting new states (in the initial rounds)
+      case LINEAR: return newBenefit * T > oldBenefit;
+      // TODO: Improve with custom annealing function
+      case CUSTOM: return Math.exp((newBenefit-oldBenefit)/T) > Math.random();
+      default: return false;
+    }
   }
 
   /**
@@ -122,7 +169,6 @@ public class Jabeja {
     // Iterate over possible swap-partners and calculate cost/benefit
     for (Integer n : nodes){
       Node potentialPartner = entireGraph.get(n);
-
       // Calculate current benefit -> Sum of neighbours with same color for both nodes
       double nodepDegree = getDegree(nodep, nodep.getColor());
       double ppDegree = getDegree(potentialPartner, potentialPartner.getColor());
@@ -223,12 +269,7 @@ public class Jabeja {
   }
 
 
-  /**
-   * Generate a report which is stored in a file in the output dir.
-   *
-   * @throws IOException
-   */
-  private void report() throws IOException {
+  private int[] getEdgeCutAndMigrations() {
     int grayLinks = 0;
     int migrations = 0; // number of nodes that have changed the initial color
     int size = entireGraph.size();
@@ -255,13 +296,38 @@ public class Jabeja {
 
     int edgeCut = grayLinks / 2;
 
+    return new int[]{edgeCut, migrations};
+  }
+
+  /**
+   * Generate a report which is stored in a file in the output dir.
+   *
+   * @throws IOException
+   */
+  private void report() throws IOException {
+    int[] infos = getEdgeCutAndMigrations();
+    int edgeCut = infos[0];
+    int migrations = infos[1];
+
     logger.info("round: " + round +
             ", edge cut:" + edgeCut +
             ", swaps: " + numberOfSwaps +
             ", migrations: " + migrations +
             ", T: " + T);
 
-    saveToFile(edgeCut, migrations);
+    save(edgeCut, migrations);
+    //saveToFile(edgeCut, migrations);
+  }
+
+
+  /**
+   * Make an array of results
+   */
+  private void save(int edgeCuts, int migrations) {
+    this.result.edgeCut[round] = edgeCuts;
+    this.result.migrations[round] = migrations;
+    this.result.swaps[round] = numberOfSwaps;
+    this.liveData[round] = this.result;
   }
 
   private void saveToFile(int edgeCuts, int migrations) throws IOException {

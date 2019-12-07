@@ -1,21 +1,29 @@
 package se.kth.jabeja.config;
 
+import se.kth.jabeja.AnnealingType;
+
 public class Config {
   private Integer numPartitions;
   private Integer rounds;
   private Integer randomNeighborsSampleSize;
-  private Float temperature;
-  private Float delta;
+  private Double temperature;
+  private Double delta;
   private Integer seed;
   private Integer uniformRandomSampleSize;
   private String graphFile;
   private String outputDir;
   private GraphInitColorPolicy initColorPolicy;
   private NodeSelectionPolicy nodeSelectionPolicy;
-  private Float alpha;
+  private Double alpha;
+  private AnnealingType annealingType;
 
-  public Config setAlpha(Float alpha) {
+  public Config setAlpha(Double alpha) {
     this.alpha = alpha;
+    return this;
+  }
+
+  public Config setAnnealingType(AnnealingType annealingType) {
+    this.annealingType = annealingType;
     return this;
   }
 
@@ -54,12 +62,12 @@ public class Config {
     return this;
   }
 
-  public Config setTemperature(Float temperature) {
+  public Config setTemperature(Double temperature) {
     this.temperature = temperature;
     return this;
   }
 
-  public Config setDelta(Float delta) {
+  public Config setDelta(Double delta) {
     this.delta = delta;
     return this;
   }
@@ -95,14 +103,14 @@ public class Config {
     return randomNeighborsSampleSize;
   }
 
-  public Float getTemperature() {
+  public Double getTemperature() {
     if (temperature == null) {
       throw new NullPointerException("Temperature is not set");
     }
     return temperature;
   }
 
-  public Float getDelta() {
+  public Double getDelta() {
     if (delta == null) {
       throw new NullPointerException("Delta is not set");
     }
@@ -152,14 +160,40 @@ public class Config {
 
   }
 
-  public Float getAlpha() {
+  public Double getAlpha() {
     if (alpha == null) {
+      throw new NullPointerException("Alpha is not set");
     }
     return alpha;
   }
 
+  public AnnealingType getAnnealingType() {
+    if (annealingType == null) {
+      throw new NullPointerException("Annealing type is not set");
+    }
+    return annealingType;
+  }
+
   public Config createJabejaConfig() {
     return new Config();
+  }
+
+  public Config copy() {
+    Config c = new Config();
+    c.setUniformRandSampleSize(this.uniformRandomSampleSize);
+    c.setRandNeighborsSampleSize(this.randomNeighborsSampleSize);
+    c.setGraphFilePath(this.graphFile);
+    c.setNumPartitions(this.numPartitions);
+    c.setRounds(this.rounds);
+    c.setTemperature(this.temperature);
+    c.setDelta(this.delta);
+    c.setSeed(this.seed);
+    c.setOutputDir(this.outputDir);
+    c.setGraphInitialColorPolicy(this.initColorPolicy);
+    c.setNodeSelectionPolicy(this.nodeSelectionPolicy);
+    c.setAlpha(this.alpha);
+    c.setAnnealingType(this.annealingType);
+    return c;
   }
 
 }
