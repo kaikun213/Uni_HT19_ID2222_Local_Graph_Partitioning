@@ -74,8 +74,6 @@ public class Main {
         newConfig.setDelta(delta);
         newConfig.setAlpha(alpha);
 
-        System.out.println(config.getRestartAtRound());
-
         Jabeja host = new Jabeja(graph, newConfig, chartIdx);
         this.realtimeCharts.add(host.getRealtime());
 

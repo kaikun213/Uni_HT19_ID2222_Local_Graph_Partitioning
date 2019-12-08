@@ -32,6 +32,9 @@ public class CLI {
   @Option(name = "-temp", usage = "Simulated annealing temperature.")
   private double TEMPERATURE = 2;
 
+  @Option(name = "-restart-at", usage = "Restart simulated annealing temperature at this round.")
+  private int RESTART_AT = -1;
+
   @Option(name = "-delta", usage = "Simulated annealing delta.")
   private double DELTA = 0.003;
 
@@ -115,6 +118,7 @@ public class CLI {
             .setGraphInitialColorPolicy(graphInitColorSelectionPolicy)
             .setOutputDir(OUTPUT_DIR)
             .setAlpha(ALPHA)
+            .setRestartAtRound(RESTART_AT)
             .setAnnealingType(annealingType);
   }
 }

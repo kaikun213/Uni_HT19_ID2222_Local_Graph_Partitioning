@@ -180,7 +180,7 @@ public class Config {
     return annealingType;
   }
 
-  public Config getRestartAtRound() {
+  public Integer getRestartAtRound() {
     return this.restartAtRound;
   }
 

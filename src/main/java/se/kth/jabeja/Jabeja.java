@@ -74,6 +74,11 @@ public class Jabeja {
       //reduce the temperature
       saCoolDown();
 
+      // restart temparature at given round
+      if (round == this.config.getRestartAtRound()) {
+        this.T = config.getAnnealingType() == LINEAR ? config.getTemperature() : 1.0;
+      }
+
 
       // Update stats and redraw graph
       report();
