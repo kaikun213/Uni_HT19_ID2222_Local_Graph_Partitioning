@@ -42,7 +42,24 @@ public class Main {
         RandNoGenerator.setSeed(config.getSeed());
 
         //start JaBeJa
-        runJabejas();
+        runJabejas(true);
+
+        //run JaBeJas multiple times and average results
+        //done for performance analysis
+        HashMap<String, Double> totalEdgeCuts = new HashMap<>();
+        for (int i=0; i < 10; i++) {
+            Result[] results = runJabejas(false);
+
+            for (Result result : results) {
+                if (!totalEdgeCuts.containsKey(result.getIdentifier())) {
+                    totalEdgeCuts.put(result.getIdentifier(), 0.0);
+                }
+                totalEdgeCuts.replace(result.getIdentifier(), 
+                    totalEdgeCuts.get(result.getIdentifier()) + result.edgeCut[result.runs-1]);
+            }
+        }
+
+        System.out.println(totalEdgeCuts);
     }
 
     /**
@@ -80,7 +97,7 @@ public class Main {
         return host;
     }
 
-    private void runJabejas() throws IOException {
+    private Result[] runJabejas(boolean displayCharts) throws IOException {
         int runs = 3;
         int annealingTypes = AnnealingType.values().length;
         Jabeja[] hosts = new Jabeja[runs * annealingTypes];
@@ -101,8 +118,11 @@ public class Main {
             hosts[(i*annealingTypes)+1] = initJabeja(AnnealingType.EXPONENTIAL, 0.0, initAlpha + deltaAlpha*i, i*annealingTypes+1);
             hosts[(i*annealingTypes)+2] = initJabeja(AnnealingType.CUSTOM, 0.0, initCustomAlpha + deltaCustomAlpha*i, i*annealingTypes+2);
         }
-        realTimeDisplay = new SwingWrapper<XYChart>(realtimeCharts);
-        realTimeDisplay.displayChartMatrix();
+
+        if (displayCharts) {
+            realTimeDisplay = new SwingWrapper<XYChart>(realtimeCharts);
+            realTimeDisplay.displayChartMatrix();
+        }
 
         // Run in parallel
         Arrays.stream(hosts).parallel().forEach(host -> {
@@ -113,7 +133,11 @@ public class Main {
             }
         });
 
-        printResults(results);
+        if (displayCharts) {
+            printResults(results);
+        }
+
+        return results;
     }
 
 
