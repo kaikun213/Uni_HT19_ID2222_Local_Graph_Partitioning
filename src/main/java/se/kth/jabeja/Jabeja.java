@@ -107,7 +107,12 @@ public class Jabeja {
       break;
       case CUSTOM: {
         // TODO - improve with custom annealing function
-        T *= config.getAlpha();
+        if (T > T_min) {
+          T -= config.getAlpha() * T * T;
+        }
+        if (T < T_min) {
+          T = T_min;
+        }
       }
     }
   }

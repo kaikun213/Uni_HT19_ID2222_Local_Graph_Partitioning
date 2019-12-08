@@ -92,11 +92,14 @@ public class Main {
         double initDelta = 0.002;
         double deltaDelta = 0.001;
 
+        double initCustomAlpha = 0.001;
+        double deltaCustomAlpha = 0.001;
+
         // Initialize
         for (int i=0; i<runs; i++){
             hosts[i*annealingTypes] = initJabeja(AnnealingType.LINEAR, initDelta + deltaDelta*i, 0.0, i*annealingTypes);
             hosts[(i*annealingTypes)+1] = initJabeja(AnnealingType.EXPONENTIAL, 0.0, initAlpha + deltaAlpha*i, i*annealingTypes+1);
-            hosts[(i*annealingTypes)+2] = initJabeja(AnnealingType.CUSTOM, 0.0, initAlpha + deltaAlpha*i, i*annealingTypes+2);
+            hosts[(i*annealingTypes)+2] = initJabeja(AnnealingType.CUSTOM, 0.0, initCustomAlpha + deltaCustomAlpha*i, i*annealingTypes+2);
         }
         realTimeDisplay = new SwingWrapper<XYChart>(realtimeCharts);
         realTimeDisplay.displayChartMatrix();
