@@ -16,6 +16,7 @@ public class Config {
   private NodeSelectionPolicy nodeSelectionPolicy;
   private Double alpha;
   private AnnealingType annealingType;
+  private Integer restartAtRound;
 
   public Config setAlpha(Double alpha) {
     this.alpha = alpha;
@@ -79,6 +80,11 @@ public class Config {
 
   public Config setUniformRandSampleSize(Integer rnd_list_size) {
     this.uniformRandomSampleSize = rnd_list_size;
+    return this;
+  }
+
+  public Config setRestartAtRound(Integer round) {
+    this.restartAtRound = round;
     return this;
   }
 
@@ -174,6 +180,10 @@ public class Config {
     return annealingType;
   }
 
+  public Config getRestartAtRound() {
+    return this.restartAtRound;
+  }
+
   public Config createJabejaConfig() {
     return new Config();
   }
@@ -193,6 +203,7 @@ public class Config {
     c.setNodeSelectionPolicy(this.nodeSelectionPolicy);
     c.setAlpha(this.alpha);
     c.setAnnealingType(this.annealingType);
+    c.setRestartAtRound(this.restartAtRound);
     return c;
   }
 
